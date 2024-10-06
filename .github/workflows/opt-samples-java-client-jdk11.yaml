@@ -1,0 +1,107 @@
+# clients
+
+name: Modified Samples Java Client JDK11
+jobs:
+  build:
+    name: build (${{ matrix.sample }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sample:
+        - samples/client/petstore/jaxrs-cxf-client
+        - samples/client/petstore/java/native
+        - samples/client/petstore/java/native-async
+        - samples/client/petstore/java/native-jakarta
+        - samples/client/petstore/java/retrofit2
+        - samples/client/petstore/java/retrofit2rx2
+        - samples/client/petstore/java/retrofit2rx3
+        - samples/client/petstore/java/retrofit2-play26
+        - samples/client/petstore/java/resttemplate
+        - samples/client/petstore/java/resttemplate-withXml
+        - samples/client/petstore/java/webclient
+        - samples/client/petstore/java/webclient-nullable-arrays
+        - samples/client/petstore/java/webclient-swagger2
+        - samples/client/petstore/java/vertx
+        - samples/client/petstore/java/jersey2-java8-localdatetime
+        - samples/client/petstore/java/google-api-client
+        - samples/client/petstore/java/rest-assured
+        - samples/client/petstore/java/rest-assured-jackson
+        - samples/client/petstore/java/microprofile-rest-client
+        - samples/client/petstore/java/microprofile-rest-client-3.0
+        - samples/client/petstore/java/microprofile-rest-client-3.0-jackson
+        - samples/client/petstore/java/microprofile-rest-client-3.0-jackson-with-xml
+        - samples/client/petstore/java/microprofile-rest-client-with-useSingleRequestParameter
+        - samples/client/petstore/java/apache-httpclient
+        - samples/client/petstore/java/feign
+        - samples/client/petstore/java/okhttp-gson-awsv4signature
+        - samples/openapi3/client/petstore/java/jersey2-java8-special-characters
+        - samples/openapi3/client/petstore/java/native
+        - samples/client/petstore/java/okhttp-gson-swagger1/
+        - samples/client/petstore/java/resttemplate-swagger1/
+        - samples/openapi3/client/petstore/java/jersey2-java8-swagger1/
+        - samples/client/petstore/java/okhttp-gson-swagger2/
+        - samples/client/petstore/java/resttemplate-swagger2/
+        - samples/openapi3/client/petstore/java/jersey2-java8-swagger2/
+        - samples/client/others/java/okhttp-gson-oneOf/
+        - samples/client/echo_api/java/okhttp-gson-user-defined-templates/
+        - samples/client/others/java/resttemplate-useAbstractionForFiles/
+        - samples/client/others/java/webclient-useAbstractionForFiles/
+        - samples/client/others/java/jersey2-oneOf-duplicates/
+        - samples/client/others/java/jersey2-oneOf-Mixed/
+        - samples/client/others/java/resttemplate-list-schema-validation/
+    steps:
+    - name: Setup Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    - name: Install dependencies
+      run: |-
+        python -m pip install --upgrade pip
+        pip install inotify
+    - name: Run inotifywait
+      run: |-
+        python3 -c "
+        import inotify.adapters
+        import inotify.constants
+        import os
+        from datetime import datetime, timezone
+        with open('/home/runner/inotifywait-log-build (${{ matrix.sample }}).csv', 'w') as log_file:
+          i = inotify.adapters.InotifyTree('/home/runner/work/openapi-generator/openapi-generator', inotify.constants.IN_CREATE | inotify.constants.IN_ACCESS)
+          for event in i.event_gen(yield_nones=False):
+            (_, type_names, path, filename) = event
+            now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f') + 'Z'
+            events = ','.join(type_names)
+            log_file.write(f'{now};{path};{filename};{events}\n')
+            log_file.flush()
+            os.fsync(log_file.fileno())
+        " &
+    - uses: actions/checkout@v4
+    - run: touch optcd-3.txt
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 11
+    - run: touch optcd-4.txt
+    - name: Cache maven dependencies
+      uses: actions/cache@v4
+      env:
+        cache-name: maven-repository
+      with:
+        path: |-
+          ~/.m2
+        key: ${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ hashFiles('**/pom.xml')
+          }}
+    - run: touch optcd-5.txt
+    - name: Build
+      working-directory: ${{ matrix.sample }}
+      run: mvn clean package --no-transfer-progress
+    - run: touch optcd-6.txt
+    - name: Upload inotifywait logs
+      uses: actions/upload-artifact@v4
+      with:
+        name: inotifywait-build (${{ matrix.sample }})
+        path: /home/runner/inotifywait-log-build (${{ matrix.sample }}).csv
+'on':
+- push
+- workflow_dispatch
